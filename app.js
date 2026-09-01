@@ -312,7 +312,7 @@
     bars.forEach((bar) => observer.observe(bar));
   }
 
-  // Certificate Modal Controller (Read-Only Viewer)
+  // Certificate Modal Controller
   window.openCertModal = function(imgSrc, title, issuer, id, date) {
     const modal = document.getElementById('cert-modal');
     if (!modal) return;
@@ -332,6 +332,142 @@
       modal.classList.remove('active');
       document.body.style.overflow = '';
     }
+  };
+
+  // Load Saved Certificates from localStorage
+  function loadSavedCertificates() {
+    try {
+      const saved = JSON.parse(localStorage.getItem('portfolio_user_certs') || '[]');
+      const certsGrid = document.getElementById('certs-grid');
+      const uploadCard = document.querySelector('.cert-card--upload');
+      if (!certsGrid || !uploadCard) return;
+
+      saved.forEach((cert) => {
+        const card = createCertCardElement(cert.imgSrc, cert.title, cert.issuer, cert.id, cert.date, cert.desc, cert.tags);
+        certsGrid.insertBefore(card, uploadCard);
+      });
+    } catch (err) {
+      console.warn('Could not load cached certificates:', err);
+    }
+  }
+
+  // Save all certificates in DOM to localStorage
+  function saveAllCertsToStorage() {
+    try {
+      const cards = document.querySelectorAll('.cert-card:not(.cert-card--upload)');
+      const certsData = [];
+      cards.forEach((card) => {
+        const img = card.querySelector('.cert-thumb-img')?.getAttribute('src') || '';
+        const title = card.querySelector('.cert-title')?.innerText.trim() || '';
+        const issuer = card.querySelector('.cert-issuer')?.innerText.trim() || '';
+        const date = card.querySelector('.cert-date')?.innerText.trim() || '';
+        const id = card.querySelector('.cert-cred-id code')?.innerText.trim() || '';
+        const desc = card.querySelector('.cert-desc')?.innerText.trim() || '';
+        const tags = Array.from(card.querySelectorAll('.ptag')).map(t => t.innerText.trim()).filter(Boolean);
+        certsData.push({ imgSrc: img, title, issuer, id, date, desc, tags });
+      });
+      localStorage.setItem('portfolio_user_certs', JSON.stringify(certsData));
+    } catch (err) {
+      console.warn('Could not save certificates to localStorage:', err);
+    }
+  }
+
+  function createCertCardElement(imgSrc, title, issuer, id, date, desc, tags) {
+    const card = document.createElement('div');
+    card.className = 'cert-card';
+    const tagList = (tags && tags.length) ? tags : ['Certification', 'Verified'];
+    const tagsHtml = tagList.map(t => `<span class="ptag editable" contenteditable="true" spellcheck="false">${t}</span>`).join(' ');
+
+    card.innerHTML = `
+      <div class="cert-thumb-wrap">
+        <img src="${imgSrc}" alt="${title}" class="cert-thumb-img">
+        <button class="cert-del-btn" title="Remove Certificate" onclick="deleteCertCard(this)">✕</button>
+        <div class="cert-overlay">
+          <button class="cert-view-btn" onclick="openCertModalFromCard(this)">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            <span>View Certificate</span>
+          </button>
+        </div>
+        <span class="cert-badge">Verified</span>
+      </div>
+      <div class="cert-info">
+        <div class="cert-header-meta">
+          <span class="cert-issuer editable" contenteditable="true" spellcheck="false" data-placeholder="Issuer">${issuer || 'Issued By'}</span>
+          <span class="cert-date editable" contenteditable="true" spellcheck="false" data-placeholder="Date">${date || 'Date'}</span>
+        </div>
+        <h3 class="cert-title editable" contenteditable="true" spellcheck="false" data-placeholder="Certificate Title">${title || 'Certificate Title'}</h3>
+        <p class="cert-desc editable" contenteditable="true" spellcheck="false" data-placeholder="Click here to type notes/description about this certificate (topics learned, skills, grade)...">${desc || ''}</p>
+        <p class="cert-cred-id">Credential ID: <code class="editable" contenteditable="true" spellcheck="false" data-placeholder="ID">${id || 'ID-1234'}</code></p>
+        <div class="cert-tags">
+          ${tagsHtml}
+        </div>
+      </div>
+    `;
+
+    // Listen to changes on any editable element inside this card
+    card.querySelectorAll('.editable').forEach((el) => {
+      el.addEventListener('input', () => {
+        saveAllCertsToStorage();
+      });
+      el.addEventListener('blur', () => {
+        saveAllCertsToStorage();
+      });
+    });
+
+    return card;
+  }
+
+  // Helper to open modal from inside card
+  window.openCertModalFromCard = function(btn) {
+    const card = btn.closest('.cert-card');
+    if (!card) return;
+    const imgSrc = card.querySelector('.cert-thumb-img')?.getAttribute('src') || '';
+    const title = card.querySelector('.cert-title')?.innerText.trim() || 'Certificate Preview';
+    const issuer = card.querySelector('.cert-issuer')?.innerText.trim() || '';
+    const date = card.querySelector('.cert-date')?.innerText.trim() || '';
+    const id = card.querySelector('.cert-cred-id code')?.innerText.trim() || '';
+    window.openCertModal(imgSrc, title, issuer, id, date);
+  };
+
+  // Helper to delete certificate
+  window.deleteCertCard = function(btn) {
+    const card = btn.closest('.cert-card');
+    if (!card) return;
+    if (confirm('Are you sure you want to remove this certificate?')) {
+      card.remove();
+      saveAllCertsToStorage();
+    }
+  };
+
+  // Dynamic Certificate Upload Handler (Multi-file + LocalStorage)
+  window.handleCertUpload = function(event) {
+    const files = Array.from(event.target.files || []);
+    if (!files.length) return;
+
+    const certsGrid = document.getElementById('certs-grid');
+    const uploadCard = document.querySelector('.cert-card--upload');
+
+    files.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const imgSrc = e.target.result;
+        const fileNameClean = file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, ' ');
+        const certTitle = fileNameClean.charAt(0).toUpperCase() + fileNameClean.slice(1);
+        const randomId = 'CERT-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+        const today = new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+
+        const newCard = createCertCardElement(imgSrc, certTitle, 'Issued By', randomId, today, '', ['Certificate', 'Verified']);
+        if (uploadCard && certsGrid) {
+          certsGrid.insertBefore(newCard, uploadCard);
+        }
+
+        saveAllCertsToStorage();
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // Reset input so re-uploading same file name triggers change
+    event.target.value = '';
   };
 
   // Drag & drop on upload card
@@ -484,11 +620,15 @@
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
       init();
+      loadSavedCertificates();
+      initCertDragDrop();
       loadSavedCv();
       initCvDragDrop();
     });
   } else {
     init();
+    loadSavedCertificates();
+    initCertDragDrop();
     loadSavedCv();
     initCvDragDrop();
   }
