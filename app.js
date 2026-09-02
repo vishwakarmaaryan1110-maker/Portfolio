@@ -9,9 +9,6 @@
   // DOM Elements
   const canvas = document.getElementById('frameCanvas');
   const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
-  const loader = document.getElementById('loader');
-  const loaderBar = document.getElementById('loader-bar');
-  const loaderPercent = document.getElementById('loader-percent');
   const scrollPrompt = document.getElementById('scroll-prompt');
   const navLinks = document.querySelectorAll('.nav-link');
   const sections = document.querySelectorAll('.content-section');
@@ -94,62 +91,44 @@
   }
 
   /**
-   * Preload all video sequence frames
+   * Preload all video sequence frames in background without blocking page
    */
   function preloadFrames() {
-    return new Promise((resolve) => {
-      // First, load frame 1 immediately for fast initial paint
-      const firstImg = new Image();
-      firstImg.src = getFramePath(1);
-      images[0] = firstImg;
+    // First, load frame 1 immediately for instant initial canvas paint
+    const firstImg = new Image();
+    firstImg.src = getFramePath(1);
+    images[0] = firstImg;
 
-      firstImg.onload = () => {
-        if (!isInitialFrameRendered) {
+    firstImg.onload = () => {
+      if (!isInitialFrameRendered) {
+        isInitialFrameRendered = true;
+        handleResize();
+        drawFrame(0);
+        currentRenderedIndex = 0;
+      }
+    };
+
+    // Load remaining frames asynchronously in background
+    for (let i = 1; i <= FRAME_COUNT; i++) {
+      const img = (i === 1) ? firstImg : new Image();
+      if (i !== 1) {
+        img.src = getFramePath(i);
+        images[i - 1] = img;
+      }
+
+      img.onload = () => {
+        loadedCount++;
+        if (!isInitialFrameRendered && (images[0]?.complete || loadedCount >= 1)) {
           isInitialFrameRendered = true;
           handleResize();
           drawFrame(0);
           currentRenderedIndex = 0;
         }
       };
-
-      // Load all 240 frames
-      for (let i = 1; i <= FRAME_COUNT; i++) {
-        const img = (i === 1) ? firstImg : new Image();
-        if (i !== 1) {
-          img.src = getFramePath(i);
-          images[i - 1] = img;
-        }
-
-        const onComplete = () => {
-          loadedCount++;
-          const percent = Math.min(100, Math.round((loadedCount / FRAME_COUNT) * 100));
-          
-          if (loaderBar) loaderBar.style.width = `${percent}%`;
-          if (loaderPercent) loaderPercent.textContent = `${percent}%`;
-
-          // If initial frame wasn't drawn yet, draw it
-          if (!isInitialFrameRendered && (images[0]?.complete || loadedCount >= 1)) {
-            isInitialFrameRendered = true;
-            handleResize();
-            drawFrame(0);
-            currentRenderedIndex = 0;
-          }
-
-          if (loadedCount >= FRAME_COUNT) {
-            resolve();
-          }
-        };
-
-        if (img.complete && img.naturalWidth > 0) {
-          onComplete();
-        } else {
-          img.onload = onComplete;
-          img.onerror = () => {
-            onComplete(); // proceed gracefully
-          };
-        }
-      }
-    });
+      img.onerror = () => {
+        loadedCount++;
+      };
+    }
   }
 
   /**
@@ -272,15 +251,8 @@
     // Initial scroll progress check
     updateScrollProgress();
 
-    // Preload all frames
-    await preloadFrames();
-
-    // Fade out loading screen smoothly
-    setTimeout(() => {
-      if (loader) {
-        loader.classList.add('fade-out');
-      }
-    }, 250);
+    // Preload background frames asynchronously without blocking
+    preloadFrames();
 
     // Animate skill bars when skills section enters viewport
     initSkillBars();
