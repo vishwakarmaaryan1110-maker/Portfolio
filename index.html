@@ -487,6 +487,34 @@
 
         <div class="certs-grid" id="certs-grid">
 
+          <!-- Certificate 1: ISRO Hackathon -->
+          <div class="cert-card">
+            <div class="cert-thumb-wrap">
+              <img src="isro-hackathon-cert.jpg" alt="ISRO Hackathon Certificate" class="cert-thumb-img">
+              <div class="cert-overlay">
+                <button class="cert-view-btn" onclick="openCertModalFromCard(this)">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  <span>View Certificate</span>
+                </button>
+              </div>
+              <span class="cert-badge">Verified</span>
+            </div>
+            <div class="cert-info">
+              <div class="cert-header-meta">
+                <span class="cert-issuer">ISRO / Space Hackathon</span>
+                <span class="cert-date">2024</span>
+              </div>
+              <h3 class="cert-title">National Space Hackathon</h3>
+              <p class="cert-desc">Certificate of achievement and participation in national level hackathon.</p>
+              <p class="cert-cred-id">Credential ID: <code>ISRO-HACK-2024</code></p>
+              <div class="cert-tags">
+                <span class="ptag">Hackathon</span>
+                <span class="ptag">Achievement</span>
+                <span class="ptag">Verified</span>
+              </div>
+            </div>
+          </div>
+
           <!-- Upload Your Own Certificate Card -->
           <div class="cert-card cert-card--upload" onclick="document.getElementById('cert-file-input').click()">
             <input type="file" id="cert-file-input" accept="image/*,.pdf" multiple style="display:none;" onchange="handleCertUpload(event)">
